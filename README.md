@@ -12,4 +12,6 @@
 
 - 本頁使用 Google Analytics(會使用 cookie)統計造訪人數、是否載入完成與遊玩時間,只用來改進這個測試版;在網址後面加上 `?notrack` 就不會被統計。
 
-內含字型 Noto Sans TC / JP / KR 以 SIL Open Font License 1.1 授權,全文見 `LICENSE-NotoSans-OFL.txt`。
+內含字型 Noto Sans TC / JP / KR 以 SIL Open Font License 1.1 授權,全文見 `licenses/NotoSans-OFL.txt`。
+
+除上述字型與 Unity 執行環境外,本 repo 的內容著作權所有、保留一切權利,僅供試玩測試,詳見 `LICENSE`。

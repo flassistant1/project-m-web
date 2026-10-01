@@ -1,0 +1,19 @@
+ProjectM Prototype(網頁測試版)
+Copyright (c) 2026 flassistant1. All rights reserved.
+著作權所有,保留一切權利。
+
+本 repo 與其發佈的網頁內容,包含遊戲程式、規則與數值設計、文字、畫面、
+音樂與音效,僅供試玩測試之用。未經著作權人書面同意,不得重製、修改、
+散布、公開傳輸,或用於其他產品與服務。
+
+This repository and the web build it publishes (game code, rules and balance
+design, text, visuals, music and sound) are provided for playtesting only.
+No part may be copied, modified, redistributed or used in another product or
+service without prior written permission from the copyright holder.
+
+不在上述範圍內、各依其原授權的部分 / Third-party components under their own terms:
+
+- 字型 Noto Sans TC / JP / KR:SIL Open Font License 1.1,
+  全文見 licenses/NotoSans-OFL.txt
+- Unity 執行環境(Build/ 內的載入器與引擎程式):依 Unity 的授權條款
+  Unity runtime (loader and engine code under Build/): subject to Unity's terms

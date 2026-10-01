@@ -51,9 +51,9 @@
         <span id="storage-hint" title="">⚠ Progress can’t be saved</span>
         <span class="spacer"></span>
         <button type="button" id="error-badge"></button>
-        <span id="build-stamp" title="Version (build time)">20261001-1838</span>
+        <span id="build-stamp" title="Version (build time)">20261001-2328</span>
         <button type="button" id="fullscreen">Fullscreen</button>
-        <a href="LICENSE-NotoSans-OFL.txt" target="_blank" rel="noopener" id="font-license">Font license</a>
+        <a href="licenses/NotoSans-OFL.txt" target="_blank" rel="noopener" id="font-license">Font license</a>
         <button type="button" id="stats-note" style="display:none">Usage stats</button>
       </div>
     </div>
@@ -506,10 +506,9 @@
         var buildUrl = "Build";
         var config = {
           arguments: [],
-          dataUrl: buildUrl + "/de9ed9b04ed0d1ecc26674ef0e31bf47.data.unityweb",
-          frameworkUrl: buildUrl + "/218a44be6b209bd2b99e5fa3b5567ce3.framework.js.unityweb",
-          codeUrl: buildUrl + "/bb98e368f131522eda5515cfe6b00cfc.wasm.unityweb",
-          symbolsUrl: buildUrl + "/7a1f7947e17712096518345b92887228.symbols.json.unityweb",
+          dataUrl: buildUrl + "/68d739d8b3d63a4a9b4a76ca054af448.data.unityweb",
+          frameworkUrl: buildUrl + "/c459be2009210cbba73d02c93f75f08f.framework.js.unityweb",
+          codeUrl: buildUrl + "/e6fe0f88b66e398d01c98af23b4686ea.wasm.unityweb",
           streamingAssetsUrl: "StreamingAssets",
           companyName: "ProjectM",
           productName: "ProjectM Prototype",
@@ -571,7 +570,7 @@
         });
 
         var script = document.createElement("script");
-        script.src = buildUrl + "/7fdbac8df5c6083eafcfb0349261f746.loader.js";
+        script.src = buildUrl + "/427ac0d52cb4073ea55697f095747dc4.loader.js";
         script.onload = function () {
           createUnityInstance(canvas, config, setProgress).then(function (unityInstance) {
             setProgress(1);
