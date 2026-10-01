@@ -51,9 +51,10 @@
         <span id="storage-hint" title="">⚠ Progress can’t be saved</span>
         <span class="spacer"></span>
         <button type="button" id="error-badge"></button>
-        <span id="build-stamp" title="Version (build time)">20261001-1616</span>
+        <span id="build-stamp" title="Version (build time)">20261001-1838</span>
         <button type="button" id="fullscreen">Fullscreen</button>
         <a href="LICENSE-NotoSans-OFL.txt" target="_blank" rel="noopener" id="font-license">Font license</a>
+        <button type="button" id="stats-note" style="display:none">Usage stats</button>
       </div>
     </div>
     <script>
@@ -63,6 +64,10 @@
         var ASPECT = 9 / 16;          // 遊戲固定 9:16 直式(GameApp 也會自己留黑邊)
         var MAX_DPR = 2;              // 手機 3 倍像素密度時限制成 2 倍,省下約一半的像素運算
         var MAX_ERRORS = 30;          // 面板只列前 30 種錯誤(第一個通常是根本原因),連續重複的合併計數
+        // 使用統計(Google Analytics 4;使用者 2026-10-01 指定):GA4 資料串流的「評估 ID」(G-XXXXXXXXXX)。留空 = 不統計、不載入任何外部程式。
+        // 這個 ID 不是機密(本來就會出現在網頁原始碼裡)。做法與後台怎麼看見 docs/prototype/網頁版打包.md「使用統計」。
+        var GA_ID = "";
+        var PLAY_MINUTES = [1, 3, 5, 10, 20, 30, 60];   // 載入完成後,在前景玩滿這些分鐘數時各送一次 play_Nm 事件
 
         var $ = function (id) { return document.getElementById(id); };
         var stage = $("stage"), frame = $("frame"), canvas = $("unity-canvas");
@@ -96,6 +101,8 @@
             fullscreen: "全螢幕",
             exitFullscreen: "離開全螢幕",
             fontLicense: "字型授權",
+            statsNote: "使用統計",
+            statsInfo: "本頁使用 Google Analytics(會使用 cookie)統計造訪人數、是否載入完成與遊玩時間,只用來改進這個測試版。在網址後面加上 ?notrack 就不會被統計。",
             errorTitle: "遊戲發生錯誤",
             errorTitleFatal: "遊戲發生錯誤,無法繼續",
             errorTitleCount: "遊戲記錄到錯誤({n})",
@@ -130,6 +137,8 @@
             fullscreen: "Fullscreen",
             exitFullscreen: "Exit fullscreen",
             fontLicense: "Font license",
+            statsNote: "Usage stats",
+            statsInfo: "This page uses Google Analytics (with cookies) to count visits, whether the game finished loading, and play time, only to improve this test build. Add ?notrack to the URL to opt out.",
             errorTitle: "The game ran into an error",
             errorTitleFatal: "The game ran into an error and can’t continue",
             errorTitleCount: "Errors recorded ({n})",
@@ -164,6 +173,8 @@
             fullscreen: "全画面",
             exitFullscreen: "全画面を終了",
             fontLicense: "フォントライセンス",
+            statsNote: "利用統計",
+            statsInfo: "このページは Google Analytics(Cookie を使用)で、訪問数・読み込み完了・プレイ時間を計測しています。テスト版の改善にのみ使用します。URL に ?notrack を付けると計測されません。",
             errorTitle: "エラーが発生しました",
             errorTitleFatal: "エラーが発生したため、続行できません",
             errorTitleCount: "エラーが記録されました({n})",
@@ -198,6 +209,8 @@
             fullscreen: "전체 화면",
             exitFullscreen: "전체 화면 종료",
             fontLicense: "글꼴 라이선스",
+            statsNote: "이용 통계",
+            statsInfo: "이 페이지는 Google Analytics(쿠키 사용)로 방문 수, 로딩 완료 여부, 플레이 시간을 집계하며 테스트 버전 개선에만 사용합니다. 주소 뒤에 ?notrack 을 붙이면 집계되지 않습니다.",
             errorTitle: "오류가 발생했습니다",
             errorTitleFatal: "오류가 발생하여 계속할 수 없습니다",
             errorTitleCount: "오류가 기록되었습니다({n})",
@@ -260,6 +273,68 @@
           if (s == null) return key;
           if (vars) Object.keys(vars).forEach(function (k) { s = s.split("{" + k + "}").join(String(vars[k])); });
           return s;
+        }
+
+        // ---------------------------------------------------------------- 使用統計(Google Analytics 4)
+        // 想知道三件事:多少人打開頁面(GA 自動的 page_view)、多少人真的載入完進到遊戲(game_loaded)、玩了多久
+        // (GA 自動的互動時間,加上 play_1m / play_3m … 的里程碑事件:後台直接看得到「玩超過 N 分鐘的有幾人」)。
+        // 不統計的情況:GA_ID 留空、本機與區域網路(localhost、serve-web.sh 給手機測試的網址)、網址帶 ?notrack。
+        // 統計程式是非同步載入的,被擋掉或載入失敗都不影響遊戲。
+        // 測試:?gatest=dry 不連線、不需要 ID,事件只印在 console 並留在 window.dataLayer;再加 &gafast=1 把「1 分鐘」縮成 1 秒。
+        var analytics = (function () {
+          var dry = query("gatest") === "dry";
+          var host = location.hostname;
+          var local = location.protocol === "file:" || host === "localhost" || host === "127.0.0.1" || host === "[::1]" ||
+            /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) || /\.local$/.test(host);
+          var on = dry || (!!GA_ID && !local && query("notrack") === null);
+          window.dataLayer = window.dataLayer || [];
+          function gtag() { window.dataLayer.push(arguments); }
+          if (on) {
+            gtag("js", new Date());
+            gtag("config", GA_ID || "G-DRYRUN");
+            if (!dry) {
+              var tag = document.createElement("script");
+              tag.async = true;
+              tag.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(GA_ID);
+              document.head.appendChild(tag);
+            }
+          }
+          function event(name, params) {
+            if (!on) return;
+            try {
+              params = params || {};
+              params.build = buildStamp || "dev";
+              params.game_lang = lang;
+              gtag("event", name, params);
+              if (dry) console.log("[ProjectM] analytics " + name + " " + JSON.stringify(params));
+            } catch (e) { /* 統計出錯不影響遊戲 */ }
+          }
+
+          // 遊玩時間:載入完成後才開始算,只算分頁在前景的時間(切到背景、手機鎖屏不算)
+          var minute = dry && query("gafast") ? 1000 : 60000;
+          var played = 0, last = 0, next = 0, started = false;
+          function tick() {
+            var now = Date.now();
+            if (last && !document.hidden) played += now - last;
+            last = document.hidden ? 0 : now;
+            while (next < PLAY_MINUTES.length && played >= PLAY_MINUTES[next] * minute) {
+              event("play_" + PLAY_MINUTES[next] + "m", { minutes: PLAY_MINUTES[next] });
+              next++;
+            }
+          }
+          function startPlayClock() {
+            if (!on || started) return;
+            started = true;
+            last = document.hidden ? 0 : Date.now();
+            setInterval(tick, Math.min(5000, minute / 2));
+            document.addEventListener("visibilitychange", tick);
+          }
+          return { on: on, event: event, startPlayClock: startPlayClock };
+        })();
+        var pageOpenedAt = Date.now();
+        if (analytics.on) {
+          $("stats-note").style.display = "";
+          $("stats-note").addEventListener("click", function () { showToast(tr("statsInfo")); });
         }
 
         // ---------------------------------------------------------------- 版面:在可用空間內放最大的 9:16 畫框
@@ -431,10 +506,10 @@
         var buildUrl = "Build";
         var config = {
           arguments: [],
-          dataUrl: buildUrl + "/b015e3913b7c4965e6e178c4a0ad49cb.data.unityweb",
-          frameworkUrl: buildUrl + "/97d6a9a9d346131964858bdc56298d13.framework.js.unityweb",
-          codeUrl: buildUrl + "/874fdbf5c3065e44b11d49a5b13953d1.wasm.unityweb",
-          symbolsUrl: buildUrl + "/ea482d891cb4b1a84c45c7a26ba19067.symbols.json.unityweb",
+          dataUrl: buildUrl + "/de9ed9b04ed0d1ecc26674ef0e31bf47.data.unityweb",
+          frameworkUrl: buildUrl + "/218a44be6b209bd2b99e5fa3b5567ce3.framework.js.unityweb",
+          codeUrl: buildUrl + "/bb98e368f131522eda5515cfe6b00cfc.wasm.unityweb",
+          symbolsUrl: buildUrl + "/7a1f7947e17712096518345b92887228.symbols.json.unityweb",
           streamingAssetsUrl: "StreamingAssets",
           companyName: "ProjectM",
           productName: "ProjectM Prototype",
@@ -468,6 +543,7 @@
           $("build-stamp").title = tr("buildTitle");
           fsButton.textContent = isFullscreen() ? tr("exitFullscreen") : tr("fullscreen");
           $("font-license").textContent = tr("fontLicense");
+          $("stats-note").textContent = tr("statsNote");
           $("error-copy").textContent = tr("copy");
           $("error-close").textContent = tr("close");
           $("error-reload").textContent = tr("reload");
@@ -495,7 +571,7 @@
         });
 
         var script = document.createElement("script");
-        script.src = buildUrl + "/f352ef6d838a0497e02f2227e6b60dc3.loader.js";
+        script.src = buildUrl + "/7fdbac8df5c6083eafcfb0349261f746.loader.js";
         script.onload = function () {
           createUnityInstance(canvas, config, setProgress).then(function (unityInstance) {
             setProgress(1);
@@ -503,7 +579,10 @@
             setTimeout(function () { loading.style.display = "none"; }, 400);
             window.unityInstance = unityInstance;
             watchFirstInput();
+            analytics.event("game_loaded", { load_seconds: Math.round((Date.now() - pageOpenedAt) / 1000) });
+            analytics.startPlayClock();
           }).catch(function (message) {
+            analytics.event("game_load_failed", { load_seconds: Math.round((Date.now() - pageOpenedAt) / 1000) });
             recordError(message, FATAL);
           });
         };
