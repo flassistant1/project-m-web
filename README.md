@@ -10,4 +10,6 @@
 
 - 支援繁體中文、English、日本語、한국어:第一次開啟依瀏覽器語系決定(都不符合時用英文),遊戲內「設定」可切換;也可以在網址後面加 `?lang=en`、`?lang=ja`、`?lang=ko`、`?lang=zh-TW` 指定。
 
+- 本頁使用 Google Analytics(會使用 cookie)統計造訪人數、是否載入完成與遊玩時間,只用來改進這個測試版;在網址後面加上 `?notrack` 就不會被統計。
+
 內含字型 Noto Sans TC / JP / KR 以 SIL Open Font License 1.1 授權,全文見 `LICENSE-NotoSans-OFL.txt`。
