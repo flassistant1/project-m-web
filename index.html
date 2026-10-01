@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -13,40 +13,47 @@
     <title>ProjectM Prototype</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="TemplateData/style.css">
+    <!-- 依語言調整系統字型的優先順序(style.css 的預設是繁中);<html lang> 由下面的 script 依語言設定 -->
+    <style>
+      html[lang="en"] body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+      html[lang="ja"] body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif; }
+      html[lang="ko"] body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif; }
+    </style>
   </head>
   <body>
+    <!-- 畫面上的文字:這裡寫的是預設語言(英文);實際語言由最下面 script 的 TEXT 對照表在第一次繪製前換上(繁中、英、日、韓) -->
     <div id="app">
       <div id="stage">
         <div id="frame">
           <canvas id="unity-canvas" width=540 height=960 tabindex="-1"></canvas>
           <div id="loading">
             <div class="title">ProjectM Prototype</div>
-            <div class="subtitle">網頁測試版</div>
+            <div class="subtitle" id="loading-subtitle">Web Test Build</div>
             <div class="bar"><div class="fill" id="loading-fill"></div></div>
-            <div class="status"><span id="loading-text">正在下載遊戲資料…</span><span id="loading-pct">0%</span></div>
+            <div class="status"><span id="loading-text">Downloading game data…</span><span id="loading-pct">0%</span></div>
           </div>
           <div id="toast"></div>
           <div id="error">
-            <h2 id="error-title">遊戲發生錯誤</h2>
-            <p id="error-hint">請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者。</p>
+            <h2 id="error-title">The game ran into an error</h2>
+            <p id="error-hint">Please take a screenshot of the message below, or press “Copy”, and send it to the developer along with the steps you took.</p>
             <pre id="error-text"></pre>
             <div class="buttons">
-              <button type="button" id="error-copy">複製</button>
-              <button type="button" id="error-close">關閉</button>
-              <button type="button" id="error-reload" class="primary">重新載入</button>
+              <button type="button" id="error-copy">Copy</button>
+              <button type="button" id="error-close">Close</button>
+              <button type="button" id="error-reload" class="primary">Reload</button>
             </div>
           </div>
         </div>
       </div>
       <div id="footer">
-        <span id="sound-hint">點一下畫面即可開啟聲音</span>
-        <span id="rotate-hint">建議把手機轉為直向</span>
-        <span id="storage-hint" title="這個瀏覽器不允許網頁保存資料(可能是無痕模式、App 內建瀏覽器,或關閉了網站資料),重新整理後進度會消失">⚠ 進度無法保存</span>
+        <span id="sound-hint">Tap the screen to turn on sound</span>
+        <span id="rotate-hint">Best played in portrait orientation</span>
+        <span id="storage-hint" title="">⚠ Progress can’t be saved</span>
         <span class="spacer"></span>
         <button type="button" id="error-badge"></button>
-        <span id="build-stamp" title="版本(打包時間)">20261001-0827</span>
-        <button type="button" id="fullscreen">全螢幕</button>
-        <a href="LICENSE-NotoSansTC-OFL.txt" target="_blank" rel="noopener">字型授權</a>
+        <span id="build-stamp" title="Version (build time)">20261001-1616</span>
+        <button type="button" id="fullscreen">Fullscreen</button>
+        <a href="LICENSE-NotoSans-OFL.txt" target="_blank" rel="noopener" id="font-license">Font license</a>
       </div>
     </div>
     <script>
@@ -68,6 +75,191 @@
         function query(name) {
           var m = new RegExp("[?&]" + name + "=([^&#]*)", "i").exec(location.search);
           return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null;
+        }
+
+        // ---------------------------------------------------------------- 多國語言(使用者 2026-10-01:英、日、韓;預設英文;中文只有繁體)
+        // 語言的決定順序和遊戲相同(Localization.Resolve):玩家在設定裡選過的語言(存檔的 language 欄位)→ 網址 ?lang= →
+        // 瀏覽器的語言清單(navigator.languages,依偏好順序取第一個支援的)→ 英文。
+        // 這張表只放外框的文字(數量很少);遊戲內的文字在 Resources/Loc/*.txt。
+        var SAVE_KEY = "projectm.progress.v4";   // 和 Progress.cs 的 KeyBase 相同(localStorage 備援存檔)
+        var HTML_LANG = { "zh-TW": "zh-Hant", "en": "en", "ja": "ja", "ko": "ko" };
+        var TEXT = {
+          "zh-TW": {
+            subtitle: "網頁測試版",
+            downloading: "正在下載遊戲資料…",
+            starting: "正在啟動…",
+            soundHint: "點一下畫面即可開啟聲音",
+            rotateHint: "建議把手機轉為直向",
+            storageHint: "⚠ 進度無法保存",
+            storageTitle: "這個瀏覽器不允許網頁保存資料(可能是無痕模式、App 內建瀏覽器,或關閉了網站資料),重新整理後進度會消失",
+            buildTitle: "版本(打包時間)",
+            fullscreen: "全螢幕",
+            exitFullscreen: "離開全螢幕",
+            fontLicense: "字型授權",
+            errorTitle: "遊戲發生錯誤",
+            errorTitleFatal: "遊戲發生錯誤,無法繼續",
+            errorTitleCount: "遊戲記錄到錯誤({n})",
+            errorHintInitial: "請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者。",
+            errorHintFatal: "請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者,然後重新載入。",
+            errorHint: "遊戲可能還能繼續玩。請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者。",
+            copy: "複製",
+            close: "關閉",
+            reload: "重新載入",
+            copied: "已複製",
+            copyManual: "請手動選取",
+            errorBadge: "⚠ 錯誤 {n}",
+            unknownError: "未知錯誤",
+            repeated: "(重複 {n} 次)",
+            moreErrors: "(之後還有 {n} 筆錯誤未列出)",
+            reportVersion: "版本:",
+            reportUnstamped: "(未標記)",
+            reportUrl: "網址:",
+            reportBrowser: "瀏覽器:",
+            loadFail: "無法載入 {src}\n請確認整個資料夾(含 Build/)都有上傳,並且是透過網址開啟(不能直接雙擊 index.html)。",
+            fileProtocol: "請透過網頁伺服器開啟(例如 tools/serve-web.sh 或上傳到 itch.io),直接雙擊 index.html 無法執行。"
+          },
+          "en": {
+            subtitle: "Web Test Build",
+            downloading: "Downloading game data…",
+            starting: "Starting…",
+            soundHint: "Tap the screen to turn on sound",
+            rotateHint: "Best played in portrait orientation",
+            storageHint: "⚠ Progress can’t be saved",
+            storageTitle: "This browser doesn’t let web pages store data (private browsing, an in-app browser, or site data turned off), so your progress will be lost when the page reloads",
+            buildTitle: "Version (build time)",
+            fullscreen: "Fullscreen",
+            exitFullscreen: "Exit fullscreen",
+            fontLicense: "Font license",
+            errorTitle: "The game ran into an error",
+            errorTitleFatal: "The game ran into an error and can’t continue",
+            errorTitleCount: "Errors recorded ({n})",
+            errorHintInitial: "Please take a screenshot of the message below, or press “Copy”, and send it to the developer along with the steps you took.",
+            errorHintFatal: "Please take a screenshot of the message below, or press “Copy”, and send it to the developer along with the steps you took. Then reload the page.",
+            errorHint: "You may still be able to keep playing. Please take a screenshot of the message below, or press “Copy”, and send it to the developer along with the steps you took.",
+            copy: "Copy",
+            close: "Close",
+            reload: "Reload",
+            copied: "Copied",
+            copyManual: "Please select it manually",
+            errorBadge: "⚠ Errors: {n}",
+            unknownError: "Unknown error",
+            repeated: "(repeated {n} times)",
+            moreErrors: "({n} more errors not listed)",
+            reportVersion: "Version: ",
+            reportUnstamped: "(unstamped)",
+            reportUrl: "URL: ",
+            reportBrowser: "Browser: ",
+            loadFail: "Could not load {src}\nMake sure the whole folder (including Build/) was uploaded and that the page is opened through a web address (double-clicking index.html will not work).",
+            fileProtocol: "Please open this through a web server (for example tools/serve-web.sh, or upload it to itch.io). It cannot run by double-clicking index.html."
+          },
+          "ja": {
+            subtitle: "ウェブテスト版",
+            downloading: "ゲームデータをダウンロード中…",
+            starting: "起動中…",
+            soundHint: "画面をタップすると音が出ます",
+            rotateHint: "縦向きでのプレイをおすすめします",
+            storageHint: "⚠ 進行状況を保存できません",
+            storageTitle: "このブラウザはウェブページによるデータの保存を許可していません(プライベートブラウズ、アプリ内ブラウザ、またはサイトデータが無効になっている可能性があります)。再読み込みすると進行状況は失われます",
+            buildTitle: "バージョン(ビルド日時)",
+            fullscreen: "全画面",
+            exitFullscreen: "全画面を終了",
+            fontLicense: "フォントライセンス",
+            errorTitle: "エラーが発生しました",
+            errorTitleFatal: "エラーが発生したため、続行できません",
+            errorTitleCount: "エラーが記録されました({n})",
+            errorHintInitial: "下のメッセージをスクリーンショットするか「コピー」を押して、操作手順と一緒に開発者へ報告してください。",
+            errorHintFatal: "下のメッセージをスクリーンショットするか「コピー」を押して、操作手順と一緒に開発者へ報告してから、再読み込みしてください。",
+            errorHint: "ゲームはそのまま続けられるかもしれません。下のメッセージをスクリーンショットするか「コピー」を押して、操作手順と一緒に開発者へ報告してください。",
+            copy: "コピー",
+            close: "閉じる",
+            reload: "再読み込み",
+            copied: "コピーしました",
+            copyManual: "手動で選択してください",
+            errorBadge: "⚠ エラー {n}",
+            unknownError: "不明なエラー",
+            repeated: "({n} 回繰り返し)",
+            moreErrors: "(ほかに {n} 件のエラーは省略されています)",
+            reportVersion: "バージョン:",
+            reportUnstamped: "(未設定)",
+            reportUrl: "URL:",
+            reportBrowser: "ブラウザ:",
+            loadFail: "{src} を読み込めません\nフォルダ全体(Build/ を含む)がアップロードされていること、URL から開いていることを確認してください(index.html を直接ダブルクリックしても動きません)。",
+            fileProtocol: "ウェブサーバー経由で開いてください(例:tools/serve-web.sh、または itch.io へアップロード)。index.html を直接ダブルクリックしても実行できません。"
+          },
+          "ko": {
+            subtitle: "웹 테스트 버전",
+            downloading: "게임 데이터를 내려받는 중…",
+            starting: "시작하는 중…",
+            soundHint: "화면을 터치하면 소리가 켜집니다",
+            rotateHint: "세로 화면으로 플레이하는 것을 권장합니다",
+            storageHint: "⚠ 진행 상황을 저장할 수 없습니다",
+            storageTitle: "이 브라우저는 웹 페이지의 데이터 저장을 허용하지 않습니다(시크릿 모드, 앱 내 브라우저이거나 사이트 데이터가 꺼져 있을 수 있습니다). 새로고침하면 진행 상황이 사라집니다",
+            buildTitle: "버전(빌드 시각)",
+            fullscreen: "전체 화면",
+            exitFullscreen: "전체 화면 종료",
+            fontLicense: "글꼴 라이선스",
+            errorTitle: "오류가 발생했습니다",
+            errorTitleFatal: "오류가 발생하여 계속할 수 없습니다",
+            errorTitleCount: "오류가 기록되었습니다({n})",
+            errorHintInitial: "아래 메시지를 스크린샷으로 찍거나 ‘복사’를 눌러, 조작 순서와 함께 개발자에게 알려 주세요.",
+            errorHintFatal: "아래 메시지를 스크린샷으로 찍거나 ‘복사’를 눌러, 조작 순서와 함께 개발자에게 알려 주신 뒤 새로고침해 주세요.",
+            errorHint: "게임은 계속 진행할 수 있을지도 모릅니다. 아래 메시지를 스크린샷으로 찍거나 ‘복사’를 눌러, 조작 순서와 함께 개발자에게 알려 주세요.",
+            copy: "복사",
+            close: "닫기",
+            reload: "새로고침",
+            copied: "복사했습니다",
+            copyManual: "직접 선택해 주세요",
+            errorBadge: "⚠ 오류 {n}",
+            unknownError: "알 수 없는 오류",
+            repeated: "({n}회 반복)",
+            moreErrors: "(이후 오류 {n}건은 표시되지 않았습니다)",
+            reportVersion: "버전: ",
+            reportUnstamped: "(표시 없음)",
+            reportUrl: "URL: ",
+            reportBrowser: "브라우저: ",
+            loadFail: "{src} 파일을 불러올 수 없습니다\n폴더 전체(Build/ 포함)가 업로드되었는지, 웹 주소로 열었는지 확인해 주세요(index.html을 직접 더블클릭하면 실행되지 않습니다).",
+            fileProtocol: "웹 서버를 통해 열어 주세요(예: tools/serve-web.sh 또는 itch.io에 업로드). index.html을 직접 더블클릭해서는 실행할 수 없습니다."
+          }
+        };
+
+        // 和 L.Parse 相同:只看主要語言代碼(zh-TW、ja-JP、en_US…);中文一律繁體;不支援回傳 null
+        function parseLang(code) {
+          if (!code) return null;
+          var primary = String(code).trim().toLowerCase().replace(/_/g, "-").split("-")[0];
+          if (primary === "zh") return "zh-TW";
+          return (primary === "en" || primary === "ja" || primary === "ko") ? primary : null;
+        }
+        var savedRaw = null, savedCode = null;
+        function savedLang() {
+          try {
+            var raw = window.localStorage.getItem(SAVE_KEY);
+            if (raw !== savedRaw) {                // 存檔沒變就不重新解析
+              savedRaw = raw;
+              savedCode = null;
+              if (raw) savedCode = parseLang(JSON.parse(raw).language);
+            }
+          } catch (e) { savedCode = null; }
+          return savedCode;
+        }
+        function browserLang() {
+          var list = [];
+          try { list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ""]; } catch (e) { }
+          for (var i = 0; i < list.length; i++) {
+            var found = parseLang(list[i]);
+            if (found) return found;
+          }
+          return null;
+        }
+        function resolveLang() { return savedLang() || parseLang(query("lang")) || browserLang() || "en"; }
+
+        var lang = resolveLang();
+        // 取文字;{n}、{src} 這類佔位符用 vars 填入。該語言缺字時退回英文
+        function tr(key, vars) {
+          var s = TEXT[lang][key];
+          if (s == null) s = TEXT.en[key];
+          if (s == null) return key;
+          if (vars) Object.keys(vars).forEach(function (k) { s = s.split("{" + k + "}").join(String(vars[k])); });
+          return s;
         }
 
         // ---------------------------------------------------------------- 版面:在可用空間內放最大的 9:16 畫框
@@ -127,7 +319,7 @@
         });
         ["fullscreenchange", "webkitfullscreenchange"].forEach(function (t) {
           document.addEventListener(t, function () {
-            fsButton.textContent = isFullscreen() ? "離開全螢幕" : "全螢幕";
+            fsButton.textContent = isFullscreen() ? tr("exitFullscreen") : tr("fullscreen");
             setTimeout(layout, 50);
           });
         });
@@ -141,33 +333,31 @@
         var fatal = false;
 
         function report() {
-          var lines = errors.map(function (e) { return e.count > 1 ? e.text + "\n(重複 " + e.count + " 次)" : e.text; });
+          var lines = errors.map(function (e) { return e.count > 1 ? e.text + "\n" + tr("repeated", { n: e.count }) : e.text; });
           var listed = errors.reduce(function (n, e) { return n + e.count; }, 0);
-          if (totalErrors > listed) lines.push("(之後還有 " + (totalErrors - listed) + " 筆錯誤未列出)");
+          if (totalErrors > listed) lines.push(tr("moreErrors", { n: totalErrors - listed }));
           return lines.join("\n\n") +
-            "\n\n---\n版本:" + (buildStamp || "(未標記)") +
-            "\n網址:" + location.href +
-            "\n瀏覽器:" + navigator.userAgent;
+            "\n\n---\n" + tr("reportVersion") + (buildStamp || tr("reportUnstamped")) +
+            "\n" + tr("reportUrl") + location.href +
+            "\n" + tr("reportBrowser") + navigator.userAgent;
         }
 
         function showErrors(isFatal) {
           if (isFatal) fatal = true;
-          $("error-title").textContent = fatal ? "遊戲發生錯誤,無法繼續" : "遊戲記錄到錯誤(" + totalErrors + ")";
-          $("error-hint").textContent = fatal
-            ? "請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者,然後重新載入。"
-            : "遊戲可能還能繼續玩。請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者。";
+          $("error-title").textContent = fatal ? tr("errorTitleFatal") : tr("errorTitleCount", { n: totalErrors });
+          $("error-hint").textContent = fatal ? tr("errorHintFatal") : tr("errorHint");
           $("error-close").style.display = fatal ? "none" : "";
           errorText.textContent = report();
           errorPanel.classList.add("show");
         }
 
         function recordError(message, level) {
-          message = String(message || "未知錯誤").trim();
+          message = String(message || tr("unknownError")).trim();
           totalErrors++;
           var last = errors[errors.length - 1];
           if (last && last.text === message) last.count++;
           else if (errors.length < MAX_ERRORS || level === FATAL) errors.push({ text: message, count: 1 });
-          errorBadge.textContent = "⚠ 錯誤 " + totalErrors;
+          errorBadge.textContent = tr("errorBadge", { n: totalErrors });
           errorBadge.classList.add("show");
           if (level === FATAL) showErrors(true);
           else if (level === POPUP) showErrors(false);
@@ -197,7 +387,7 @@
         $("error-reload").addEventListener("click", function () { location.reload(); });
         $("error-copy").addEventListener("click", function () {
           var text = report(), button = this;
-          function done(ok) { button.textContent = ok ? "已複製" : "請手動選取"; setTimeout(function () { button.textContent = "複製"; }, 1500); }
+          function done(ok) { button.textContent = ok ? tr("copied") : tr("copyManual"); setTimeout(function () { button.textContent = tr("copy"); }, 1500); }
           function fallback() {
             var area = document.createElement("textarea");
             area.value = text;
@@ -241,10 +431,10 @@
         var buildUrl = "Build";
         var config = {
           arguments: [],
-          dataUrl: buildUrl + "/1e29f42092ec9f28c58864cc5720033e.data.unityweb",
-          frameworkUrl: buildUrl + "/746c38f9f70cebd8d6a5e564d7fe5b0e.framework.js.unityweb",
-          codeUrl: buildUrl + "/10a0922b3a93ed5358fbe39f5c159054.wasm.unityweb",
-          symbolsUrl: buildUrl + "/8e57508b2a189af2c03f17cd63b48498.symbols.json.unityweb",
+          dataUrl: buildUrl + "/b015e3913b7c4965e6e178c4a0ad49cb.data.unityweb",
+          frameworkUrl: buildUrl + "/97d6a9a9d346131964858bdc56298d13.framework.js.unityweb",
+          codeUrl: buildUrl + "/874fdbf5c3065e44b11d49a5b13953d1.wasm.unityweb",
+          symbolsUrl: buildUrl + "/ea482d891cb4b1a84c45c7a26ba19067.symbols.json.unityweb",
           streamingAssetsUrl: "StreamingAssets",
           companyName: "ProjectM",
           productName: "ProjectM Prototype",
@@ -256,15 +446,56 @@
           autoSyncPersistentDataPath: true,
         };
 
+        var lastProgress = 0;
         function setProgress(p) {
+          lastProgress = p;
           var pct = Math.max(0, Math.min(100, Math.round(p * 100)));
           fill.style.width = pct + "%";
           loadingPct.textContent = pct + "%";
-          loadingText.textContent = p < 0.9 ? "正在下載遊戲資料…" : "正在啟動…";
+          loadingText.textContent = p < 0.9 ? tr("downloading") : tr("starting");
         }
 
+        // ---------------------------------------------------------------- 套用語言
+        // 把外框上所有文字換成目前語言(第一次在這裡呼叫,還沒開始載入 Unity、畫面也還沒繪製;之後語言改變時再呼叫)
+        function applyTexts() {
+          document.documentElement.lang = HTML_LANG[lang];
+          $("loading-subtitle").textContent = tr("subtitle");
+          loadingText.textContent = lastProgress < 0.9 ? tr("downloading") : tr("starting");
+          soundHint.textContent = tr("soundHint");
+          $("rotate-hint").textContent = tr("rotateHint");
+          $("storage-hint").textContent = tr("storageHint");
+          $("storage-hint").title = tr("storageTitle");
+          $("build-stamp").title = tr("buildTitle");
+          fsButton.textContent = isFullscreen() ? tr("exitFullscreen") : tr("fullscreen");
+          $("font-license").textContent = tr("fontLicense");
+          $("error-copy").textContent = tr("copy");
+          $("error-close").textContent = tr("close");
+          $("error-reload").textContent = tr("reload");
+          if (totalErrors > 0) errorBadge.textContent = tr("errorBadge", { n: totalErrors });
+          if (errorPanel.classList.contains("show")) showErrors(false);   // 面板開著:標題、說明、報告一起換
+          else { $("error-title").textContent = tr("errorTitle"); $("error-hint").textContent = tr("errorHintInitial"); }
+        }
+        applyTexts();
+
+        // 玩家在遊戲的設定裡換語言時(GameApp.SetLanguage 會同步寫入存檔),外框跟著換:
+        // 遊戲端可以直接呼叫 window.__pmSetLanguage("ja");沒有呼叫時,在每次操作後重新讀一次存檔裡的語言。
+        function setLang(next) {
+          if (!next || !TEXT[next] || next === lang) return;
+          lang = next;
+          applyTexts();
+        }
+        window.__pmSetLanguage = function (code) { setLang(parseLang(code)); };
+        var langTimers = [];
+        function recheckLang() { setLang(resolveLang()); }
+        ["pointerup", "touchend", "keyup"].forEach(function (type) {
+          window.addEventListener(type, function () {
+            langTimers.forEach(clearTimeout);
+            langTimers = [setTimeout(recheckLang, 400), setTimeout(recheckLang, 2000)];
+          }, true);
+        });
+
         var script = document.createElement("script");
-        script.src = buildUrl + "/164a790259e9d7ec3fefe8718a3c17de.loader.js";
+        script.src = buildUrl + "/f352ef6d838a0497e02f2227e6b60dc3.loader.js";
         script.onload = function () {
           createUnityInstance(canvas, config, setProgress).then(function (unityInstance) {
             setProgress(1);
@@ -277,10 +508,10 @@
           });
         };
         script.onerror = function () {
-          recordError("無法載入 " + script.src + "\n請確認整個資料夾(含 Build/)都有上傳,並且是透過網址開啟(不能直接雙擊 index.html)。", FATAL);
+          recordError(tr("loadFail", { src: script.src }), FATAL);
         };
         if (location.protocol === "file:") {
-          recordError("請透過網頁伺服器開啟(例如 tools/serve-web.sh 或上傳到 itch.io),直接雙擊 index.html 無法執行。", FATAL);
+          recordError(tr("fileProtocol"), FATAL);
         } else {
           document.body.appendChild(script);
         }
