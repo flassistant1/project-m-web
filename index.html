@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <!-- 手機:不可縮放、畫面延伸到瀏海區(再用 safe-area 內距避開) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#07070a">
+    <title>ProjectM Prototype</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="TemplateData/style.css">
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <div id="frame">
+          <canvas id="unity-canvas" width=540 height=960 tabindex="-1"></canvas>
+          <div id="loading">
+            <div class="title">ProjectM Prototype</div>
+            <div class="subtitle">網頁測試版</div>
+            <div class="bar"><div class="fill" id="loading-fill"></div></div>
+            <div class="status"><span id="loading-text">正在下載遊戲資料…</span><span id="loading-pct">0%</span></div>
+          </div>
+          <div id="toast"></div>
+          <div id="error">
+            <h2 id="error-title">遊戲發生錯誤</h2>
+            <p id="error-hint">請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者。</p>
+            <pre id="error-text"></pre>
+            <div class="buttons">
+              <button type="button" id="error-copy">複製</button>
+              <button type="button" id="error-close">關閉</button>
+              <button type="button" id="error-reload" class="primary">重新載入</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="footer">
+        <span id="sound-hint">點一下畫面即可開啟聲音</span>
+        <span id="rotate-hint">建議把手機轉為直向</span>
+        <span id="storage-hint" title="這個瀏覽器不允許網頁保存資料(可能是無痕模式、App 內建瀏覽器,或關閉了網站資料),重新整理後進度會消失">⚠ 進度無法保存</span>
+        <span class="spacer"></span>
+        <button type="button" id="error-badge"></button>
+        <span id="build-stamp" title="版本(打包時間)">20261001-0827</span>
+        <button type="button" id="fullscreen">全螢幕</button>
+        <a href="LICENSE-NotoSansTC-OFL.txt" target="_blank" rel="noopener">字型授權</a>
+      </div>
+    </div>
+    <script>
+      (function () {
+        "use strict";
+
+        var ASPECT = 9 / 16;          // 遊戲固定 9:16 直式(GameApp 也會自己留黑邊)
+        var MAX_DPR = 2;              // 手機 3 倍像素密度時限制成 2 倍,省下約一半的像素運算
+        var MAX_ERRORS = 30;          // 面板只列前 30 種錯誤(第一個通常是根本原因),連續重複的合併計數
+
+        var $ = function (id) { return document.getElementById(id); };
+        var stage = $("stage"), frame = $("frame"), canvas = $("unity-canvas");
+        var loading = $("loading"), fill = $("loading-fill"), loadingText = $("loading-text"), loadingPct = $("loading-pct");
+        var errorPanel = $("error"), errorText = $("error-text"), errorBadge = $("error-badge");
+        var buildStamp = $("build-stamp").textContent;
+        if (buildStamp.indexOf("__") === 0) { buildStamp = ""; $("build-stamp").textContent = ""; }
+        else $("build-stamp").textContent = "v" + buildStamp;
+
+        function query(name) {
+          var m = new RegExp("[?&]" + name + "=([^&#]*)", "i").exec(location.search);
+          return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : null;
+        }
+
+        // ---------------------------------------------------------------- 版面:在可用空間內放最大的 9:16 畫框
+        function layout() {
+          var w = stage.clientWidth, h = stage.clientHeight;
+          if (w <= 0 || h <= 0) return;
+          var fw = Math.min(w, h * ASPECT);
+          var fh = fw / ASPECT;
+          frame.style.width = Math.floor(fw) + "px";
+          frame.style.height = Math.floor(fh) + "px";
+        }
+        window.addEventListener("resize", layout);
+        window.addEventListener("orientationchange", function () { setTimeout(layout, 250); });
+        if (window.visualViewport) window.visualViewport.addEventListener("resize", layout);
+        layout();
+
+        // ---------------------------------------------------------------- 手機:擋掉縮放手勢與雙擊縮放
+        document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
+
+        // ---------------------------------------------------------------- 存檔提示
+        // 進度會同時存進 localStorage(同步)與 IndexedDB(Unity 的 PlayerPrefs);兩個都不能用時才提示
+        (function () {
+          var localOk = false, idbOk = false;
+          try { window.localStorage.setItem("projectm.storage.test", "1"); window.localStorage.removeItem("projectm.storage.test"); localOk = true; } catch (e) { }
+          try { idbOk = !!window.indexedDB; } catch (e) { }
+          window.__pmStorage = { local: localOk, indexedDB: idbOk };
+          if (!localOk && !idbOk) $("storage-hint").style.display = "inline";
+          else if (!localOk) console.log("[ProjectM] localStorage 不能用,進度只靠 IndexedDB 保存");
+        })();
+
+        // ---------------------------------------------------------------- 聲音提示
+        // Unity 載入完成後,第一次點擊/觸控時會開啟聲音(瀏覽器規定);提示在那之後淡出
+        var soundHint = $("sound-hint");
+        var INPUTS = ["pointerdown", "touchstart", "keydown"];
+        function firstInput() {
+          soundHint.classList.add("gone");
+          setTimeout(function () { soundHint.style.display = "none"; }, 700);
+          INPUTS.forEach(function (t) { window.removeEventListener(t, firstInput, true); });
+        }
+        function watchFirstInput() {
+          INPUTS.forEach(function (t) { window.addEventListener(t, firstInput, true); });
+        }
+
+        // ---------------------------------------------------------------- 全螢幕(iPhone 的 Safari 不支援,按鈕不顯示)
+        var app = $("app"), fsButton = $("fullscreen");
+        var canFullscreen = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+        if (canFullscreen) fsButton.classList.add("show");
+        function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+        fsButton.addEventListener("click", function () {
+          try {
+            var p = isFullscreen()
+              ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+              : (app.requestFullscreen || app.webkitRequestFullscreen).call(app);
+            if (p && p.catch) p.catch(function () { /* 使用者或瀏覽器拒絕,忽略 */ });
+          } catch (e) { /* 忽略 */ }
+        });
+        ["fullscreenchange", "webkitfullscreenchange"].forEach(function (t) {
+          document.addEventListener(t, function () {
+            fsButton.textContent = isFullscreen() ? "離開全螢幕" : "全螢幕";
+            setTimeout(layout, 50);
+          });
+        });
+
+        // ---------------------------------------------------------------- 錯誤顯示
+        // 等級:QUIET = 只在右下角計數(Debug.LogError、C# 例外);POPUP = 立刻打開面板但可關閉(未攔截的 JS 錯誤);
+        //       FATAL = 無法繼續(載入失敗),只能重新載入
+        var QUIET = 0, POPUP = 1, FATAL = 2;
+        var errors = [];              // [{ text, count }]
+        var totalErrors = 0;
+        var fatal = false;
+
+        function report() {
+          var lines = errors.map(function (e) { return e.count > 1 ? e.text + "\n(重複 " + e.count + " 次)" : e.text; });
+          var listed = errors.reduce(function (n, e) { return n + e.count; }, 0);
+          if (totalErrors > listed) lines.push("(之後還有 " + (totalErrors - listed) + " 筆錯誤未列出)");
+          return lines.join("\n\n") +
+            "\n\n---\n版本:" + (buildStamp || "(未標記)") +
+            "\n網址:" + location.href +
+            "\n瀏覽器:" + navigator.userAgent;
+        }
+
+        function showErrors(isFatal) {
+          if (isFatal) fatal = true;
+          $("error-title").textContent = fatal ? "遊戲發生錯誤,無法繼續" : "遊戲記錄到錯誤(" + totalErrors + ")";
+          $("error-hint").textContent = fatal
+            ? "請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者,然後重新載入。"
+            : "遊戲可能還能繼續玩。請把下面的訊息截圖或按「複製」,連同操作步驟一起回報給開發者。";
+          $("error-close").style.display = fatal ? "none" : "";
+          errorText.textContent = report();
+          errorPanel.classList.add("show");
+        }
+
+        function recordError(message, level) {
+          message = String(message || "未知錯誤").trim();
+          totalErrors++;
+          var last = errors[errors.length - 1];
+          if (last && last.text === message) last.count++;
+          else if (errors.length < MAX_ERRORS || level === FATAL) errors.push({ text: message, count: 1 });
+          errorBadge.textContent = "⚠ 錯誤 " + totalErrors;
+          errorBadge.classList.add("show");
+          if (level === FATAL) showErrors(true);
+          else if (level === POPUP) showErrors(false);
+          else if (errorPanel.classList.contains("show") && !fatal) scheduleRefresh();
+        }
+
+        // Unity 的 Debug.LogError / 例外都會走 console.error;另外記一份給錯誤面板(原本的輸出照常)
+        var consoleError = console.error;
+        console.error = function () {
+          try {
+            recordError(Array.prototype.map.call(arguments, function (a) {
+              return a && a.stack ? a.stack : String(a);
+            }).join(" "), QUIET);
+          } catch (e) { /* 忽略 */ }
+          return consoleError.apply(console, arguments);
+        };
+
+        // 面板開著時,錯誤可能每幀都來:最多每秒更新一次內容
+        var refreshTimer = 0;
+        function scheduleRefresh() {
+          if (refreshTimer) return;
+          refreshTimer = setTimeout(function () { refreshTimer = 0; if (errorPanel.classList.contains("show")) showErrors(fatal); }, 1000);
+        }
+
+        errorBadge.addEventListener("click", function () { showErrors(false); });
+        $("error-close").addEventListener("click", function () { errorPanel.classList.remove("show"); });
+        $("error-reload").addEventListener("click", function () { location.reload(); });
+        $("error-copy").addEventListener("click", function () {
+          var text = report(), button = this;
+          function done(ok) { button.textContent = ok ? "已複製" : "請手動選取"; setTimeout(function () { button.textContent = "複製"; }, 1500); }
+          function fallback() {
+            var area = document.createElement("textarea");
+            area.value = text;
+            area.style.position = "fixed"; area.style.opacity = "0";
+            document.body.appendChild(area);
+            area.select();
+            var ok = false;
+            try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+            document.body.removeChild(area);
+            done(ok);
+          }
+          if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+          else fallback();
+        });
+
+        var toast = $("toast"), toastTimer = 0;
+        function showToast(message) {
+          toast.textContent = message;
+          toast.style.display = "block";
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () { toast.style.display = "none"; }, 6000);
+        }
+
+        // Unity 載入器的訊息:error = 致命錯誤,warning / 其他 = 暫時提示
+        function unityShowBanner(message, type) {
+          if (type === "error") recordError(message, FATAL);
+          else showToast(message);
+        }
+
+        // 執行中未攔截的錯誤(取代 Unity 預設的 alert 對話框)
+        function unityErrorHandler(message, filename, lineno) {
+          recordError(message + (filename ? "\n(" + filename + ":" + lineno + ")" : ""), POPUP);
+          return true;
+        }
+
+        // ---------------------------------------------------------------- 載入 Unity
+        var dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+        var dprParam = parseFloat(query("dpr"));
+        if (dprParam > 0) dpr = Math.min(dprParam, window.devicePixelRatio || 1);  // 例如 ?dpr=1 在慢的手機上測效能
+
+        var buildUrl = "Build";
+        var config = {
+          arguments: [],
+          dataUrl: buildUrl + "/1e29f42092ec9f28c58864cc5720033e.data.unityweb",
+          frameworkUrl: buildUrl + "/746c38f9f70cebd8d6a5e564d7fe5b0e.framework.js.unityweb",
+          codeUrl: buildUrl + "/10a0922b3a93ed5358fbe39f5c159054.wasm.unityweb",
+          symbolsUrl: buildUrl + "/8e57508b2a189af2c03f17cd63b48498.symbols.json.unityweb",
+          streamingAssetsUrl: "StreamingAssets",
+          companyName: "ProjectM",
+          productName: "ProjectM Prototype",
+          productVersion: "1.0",
+          showBanner: unityShowBanner,
+          errorHandler: unityErrorHandler,
+          devicePixelRatio: dpr,
+          // PlayerPrefs / persistentDataPath 的寫入自動存進瀏覽器(IndexedDB)
+          autoSyncPersistentDataPath: true,
+        };
+
+        function setProgress(p) {
+          var pct = Math.max(0, Math.min(100, Math.round(p * 100)));
+          fill.style.width = pct + "%";
+          loadingPct.textContent = pct + "%";
+          loadingText.textContent = p < 0.9 ? "正在下載遊戲資料…" : "正在啟動…";
+        }
+
+        var script = document.createElement("script");
+        script.src = buildUrl + "/164a790259e9d7ec3fefe8718a3c17de.loader.js";
+        script.onload = function () {
+          createUnityInstance(canvas, config, setProgress).then(function (unityInstance) {
+            setProgress(1);
+            loading.classList.add("done");
+            setTimeout(function () { loading.style.display = "none"; }, 400);
+            window.unityInstance = unityInstance;
+            watchFirstInput();
+          }).catch(function (message) {
+            recordError(message, FATAL);
+          });
+        };
+        script.onerror = function () {
+          recordError("無法載入 " + script.src + "\n請確認整個資料夾(含 Build/)都有上傳,並且是透過網址開啟(不能直接雙擊 index.html)。", FATAL);
+        };
+        if (location.protocol === "file:") {
+          recordError("請透過網頁伺服器開啟(例如 tools/serve-web.sh 或上傳到 itch.io),直接雙擊 index.html 無法執行。", FATAL);
+        } else {
+          document.body.appendChild(script);
+        }
+      })();
+    </script>
+  </body>
+</html>

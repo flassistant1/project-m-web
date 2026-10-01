@@ -1,0 +1,239 @@
+/* ProjectM 網頁外框。配色取自遊戲 Theme(Backdrop 141319、Text F1E8D8、Gold E8B85A、Bad D8504A)。 */
+:root {
+  --page: #07070a;
+  --backdrop: #141319;
+  --panel: #211e26;
+  --panel-light: #2e2934;
+  --edge: #4a3f3a;
+  --text: #f1e8d8;
+  --text-dim: #a89f92;
+  --text-faint: #6f675f;
+  --gold: #e8b85a;
+  --gold-deep: #b07a2a;
+  --bad: #d8504a;
+  --footer-h: 22px;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--page);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
+  /* 手機:不捲動、不縮放、不反白、不跳出長按選單 */
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 整個可視範圍,扣掉 iOS 瀏海與底部橫條的安全區域 */
+#app {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; left: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  background: var(--page);
+}
+
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 9:16 直式畫框(尺寸由 index.html 的 layout() 依可用空間計算) */
+#frame {
+  position: relative;
+  width: 270px;
+  height: 480px;
+  background: var(--backdrop);
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+#unity-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--backdrop);
+  outline: none;
+  touch-action: none;
+}
+
+/* ---- 載入畫面 ---- */
+#loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: radial-gradient(ellipse at 50% 42%, #221d27 0%, var(--backdrop) 70%);
+  transition: opacity 0.35s ease;
+}
+#loading.done { opacity: 0; pointer-events: none; }
+#loading .title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+#loading .subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  margin-bottom: 18px;
+}
+#loading .bar {
+  width: 62%;
+  max-width: 280px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel-light);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+#loading .fill {
+  width: 0%;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  /* 不用 width 動畫:Unity 初始化時會佔住主執行緒,動畫會卡在半路,和百分比對不上 */
+}
+#loading .status {
+  width: 62%;
+  max-width: 280px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 提示(警告) ---- */
+#toast {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  max-width: 86%;
+  display: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(33, 30, 38, 0.94);
+  border: 1px solid var(--edge);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  z-index: 5;
+}
+
+/* ---- 錯誤面板 ---- */
+#error {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding: 18px;
+  box-sizing: border-box;
+  background: rgba(10, 9, 13, 0.94);
+  z-index: 10;
+}
+#error.show { display: flex; }
+#error h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  color: var(--bad);
+}
+#error p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+#error pre {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 0 12px;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  color: var(--text);
+  font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: pan-x pan-y;
+}
+#error .buttons { display: flex; gap: 8px; justify-content: flex-end; }
+#error button {
+  appearance: none;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 8px 14px;
+  background: var(--panel-light);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+#error button.primary { background: var(--gold-deep); border-color: var(--gold); }
+
+/* ---- 底部資訊列 ---- */
+#footer {
+  flex: 0 0 var(--footer-h);
+  height: var(--footer-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+}
+#footer > * { flex: 0 0 auto; }
+#footer .spacer { flex: 1 1 auto; }
+/* 窄螢幕:版本先縮成「…」,再來才是提示;授權連結永遠看得到 */
+#sound-hint, #rotate-hint, #build-stamp { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#build-stamp { flex-shrink: 50; }
+#footer a, #footer button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--text-faint);
+  text-decoration: none;
+  cursor: pointer;
+}
+#footer a:hover, #footer button:hover { color: var(--text-dim); }
+#sound-hint { color: var(--gold); transition: opacity 0.6s ease; }
+#sound-hint.gone { opacity: 0; }
+#rotate-hint { color: var(--text-dim); display: none; }
+#storage-hint { color: #ff9a6b; display: none; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#error-badge { color: var(--bad) !important; display: none; }
+#error-badge.show { display: inline; }
+#fullscreen { display: none; }
+#fullscreen.show { display: inline; }
+
+/* 手機橫放:9:16 畫面會很小,提示轉為直向 */
+@media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
+  #rotate-hint { display: inline; }
+}
